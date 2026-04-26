@@ -2,10 +2,12 @@ import sqlite3
 
 DB_NAME = "receipts.db"
 
+
 def get_connection():
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     return conn
+
 
 def init_db():
     conn = get_connection()
@@ -27,6 +29,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 def add_transaction(store_name, amount, category, note, date, trans_type, receipt_image=None):
     conn = get_connection()
     conn.execute("""
@@ -35,6 +38,7 @@ def add_transaction(store_name, amount, category, note, date, trans_type, receip
     """, (store_name, amount, category, note, date, trans_type, receipt_image))
     conn.commit()
     conn.close()
+
 
 def update_transaction(tx_id, store_name, amount, category, note, date, trans_type):
     conn = get_connection()
@@ -46,11 +50,13 @@ def update_transaction(tx_id, store_name, amount, category, note, date, trans_ty
     conn.commit()
     conn.close()
 
+
 def delete_transaction(tx_id):
     conn = get_connection()
     conn.execute("DELETE FROM transactions WHERE id = ?", (tx_id,))
     conn.commit()
     conn.close()
+
 
 def get_transactions(search="", trans_type="", category=""):
     conn = get_connection()
@@ -75,20 +81,26 @@ def get_transactions(search="", trans_type="", category=""):
     conn.close()
     return rows
 
+
 def get_summary():
     conn = get_connection()
 
-    total_income = conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type='income'"
-    ).fetchone()[0]
+    total_income = conn.execute("""
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE type='income'
+    """).fetchone()[0]
 
-    total_expense = conn.execute(
-        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type='expense'"
-    ).fetchone()[0]
+    total_expense = conn.execute("""
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE type='expense'
+    """).fetchone()[0]
 
-    total_count = conn.execute(
-        "SELECT COUNT(*) FROM transactions"
-    ).fetchone()[0]
+    total_count = conn.execute("""
+        SELECT COUNT(*)
+        FROM transactions
+    """).fetchone()[0]
 
     top_category_row = conn.execute("""
         SELECT category, SUM(amount) as total
@@ -108,15 +120,8 @@ def get_summary():
         "count": total_count,
         "top_category": top_category_row["category"] if top_category_row else "-"
     }
-def update_transaction(tx_id, store_name, amount, category, note, date, trans_type):
-    conn = get_connection()
-    conn.execute("""
-        UPDATE transactions
-        SET store_name=?, amount=?, category=?, note=?, date=?, type=?
-        WHERE id=?
-    """, (store_name, amount, category, note, date, trans_type, tx_id))
-    conn.commit()
-    conn.close()
+
+
 def get_expense_by_category():
     conn = get_connection()
     rows = conn.execute("""
@@ -146,7 +151,11 @@ def get_income_vs_expense():
     """).fetchone()[0]
 
     conn.close()
-    return {"income": float(income), "expense": float(expense)}
+
+    return {
+        "income": float(income),
+        "expense": float(expense)
+    }
 
 
 def get_daily_expense_trend():
