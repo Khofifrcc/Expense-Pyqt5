@@ -1,0 +1,9 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+receipts.db
+.env
+*.log
+processed_*
+.DS_Store

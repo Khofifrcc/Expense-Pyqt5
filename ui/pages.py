@@ -1,4 +1,4 @@
-import cv2
+import csv
 import speech_recognition as sr
 
 from PyQt5.QtCore import Qt, QDate
@@ -142,16 +142,16 @@ class ScanPage(QWidget):
         outer.setContentsMargins(20, 20, 20, 20)
         outer.setSpacing(16)
 
-        title = QLabel("Scan Receipt")
+        title = QLabel("Upload Receipt")
         title.setObjectName("pageTitle")
         outer.addWidget(title)
 
-        subtitle = QLabel("Use OCR to automatically extract transaction details")
+        subtitle = QLabel("Upload a clear receipt image to automatically extract transaction details")
         subtitle.setObjectName("pageSubtitle")
         outer.addWidget(subtitle)
 
         preview_box = SectionBox("Receipt Preview")
-        self.preview = QLabel("📷\n\nPosition your receipt within the frame")
+        self.preview = QLabel("🧾\n\nUpload a clear receipt image")
         self.preview.setAlignment(Qt.AlignCenter)
         self.preview.setFixedHeight(260)
         self.preview.setObjectName("placeholder")
@@ -161,13 +161,9 @@ class ScanPage(QWidget):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(12)
 
-        self.camera_btn = QPushButton("Scan Receipt")
-        self.upload_btn = QPushButton("Upload Image")
-
-        self.camera_btn.clicked.connect(self.handle_camera_scan)
+        self.upload_btn = QPushButton("Upload Receipt Image")
         self.upload_btn.clicked.connect(self.handle_upload)
 
-        btn_row.addWidget(self.camera_btn)
         btn_row.addWidget(self.upload_btn)
         outer.addLayout(btn_row)
 
@@ -176,14 +172,14 @@ class ScanPage(QWidget):
         tips_layout = QVBoxLayout(tips_box)
         tips_layout.setContentsMargins(16, 16, 16, 16)
 
-        tips_title = QLabel("📸 Tips for better scanning")
+        tips_title = QLabel("🧾 Tips for better receipt upload")
         tips_title.setStyleSheet("font-weight: 700; color: #2948a2;")
 
         tips_text = QLabel(
-            "• Make sure the receipt is well-lit and clearly visible\n"
-            "• Avoid shadows and glare on the receipt\n"
-            "• Keep the receipt flat and within the frame\n"
-            "• Ensure text is readable and not blurry"
+            "• Take a close photo so the receipt fills most of the image\n"
+            "• Make sure the text is clear, bright, and not blurry\n"
+            "• Crop unnecessary background before uploading\n"
+            "• Avoid shadows, glare, and tilted photos"
         )
         tips_text.setStyleSheet("color: #2948a2;")
         tips_text.setWordWrap(True)
@@ -249,46 +245,6 @@ class ScanPage(QWidget):
         )
         self.preview.setPixmap(scaled)
 
-    def handle_camera_scan(self):
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            QMessageBox.warning(self, "Camera Error", "Camera could not be opened.")
-            return
-
-        QMessageBox.information(
-            self,
-            "Camera",
-            "Press SPACE to capture receipt.\nPress ESC to cancel.",
-        )
-
-        captured_frame = None
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            cv2.imshow("Receipt Camera Scan", frame)
-            key = cv2.waitKey(1)
-
-            if key == 32:
-                captured_frame = frame
-                break
-            if key == 27:
-                break
-
-        cap.release()
-        cv2.destroyAllWindows()
-
-        if captured_frame is None:
-            return
-
-        temp_path = "captured_receipt.jpg"
-        cv2.imwrite(temp_path, captured_frame)
-        self.current_image_path = temp_path
-        self.set_preview_image(temp_path)
-        self.process_receipt(temp_path)
-
     def handle_upload(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -350,7 +306,7 @@ class ScanPage(QWidget):
             self.date_edit.setDate(QDate.currentDate())
             self.current_image_path = None
             self.preview.clear()
-            self.preview.setText("📷\n\nPosition your receipt within the frame")
+            self.preview.setText("🧾\n\nUpload a clear receipt image")
         except ValueError:
             QMessageBox.warning(self, "Warning", "Amount must be a valid number.")
         except Exception as e:
@@ -465,56 +421,56 @@ class ManualInputPage(QWidget):
     def handle_voice_input(self):
         recognizer = sr.Recognizer()
 
-    try:
-        self.voice_btn.setText("Listening...")
-        QApplication.processEvents()
+        try:
+            self.voice_btn.setText("Listening...")
+            QApplication.processEvents()
 
-        with sr.Microphone() as source:
-            recognizer.adjust_for_ambient_noise(source, duration=1)
-            audio = recognizer.listen(source, timeout=5, phrase_time_limit=7)
+            with sr.Microphone() as source:
+                recognizer.adjust_for_ambient_noise(source, duration=1)
+                audio = recognizer.listen(source, timeout=5, phrase_time_limit=7)
 
-    try:
-        text = recognizer.recognize_google(audio, language="en-US")
+            try:
+                text = recognizer.recognize_google(audio, language="en-US")
             except sr.UnknownValueError:
-            QMessageBox.warning(self, "Voice Input", "Tidak bisa mengenali suara 😢")
-            return
-        except sr.RequestError:
-            QMessageBox.critical(self, "Voice Input", "Koneksi ke Google Speech gagal 🌐")
-            return
+                QMessageBox.warning(self, "Voice Input", "Tidak bisa mengenali suara 😢")
+                return
+            except sr.RequestError:
+                QMessageBox.critical(self, "Voice Input", "Koneksi ke Google Speech gagal 🌐")
+                return
 
-        self.voice_result.setPlainText(text)
+            self.voice_result.setPlainText(text)
+            parsed = parse_voice_transaction(text)
 
-        parsed = parse_voice_transaction(text)
+            if parsed["type"]:
+                idx = self.trans_type.findText(parsed["type"])
+                if idx >= 0:
+                    self.trans_type.setCurrentIndex(idx)
 
-        if parsed["type"]:
-            idx = self.trans_type.findText(parsed["type"])
-            if idx >= 0:
-                self.trans_type.setCurrentIndex(idx)
+            if parsed["store"]:
+                self.store_input.setText(parsed["store"])
 
-        if parsed["store"]:
-            self.store_input.setText(parsed["store"])
+            if parsed["amount"] is not None:
+                self.amount_input.setText(f"{parsed['amount']:.2f}")
 
-        if parsed["amount"] is not None:
-            self.amount_input.setText(f"{parsed['amount']:.2f}")
+            if parsed["category"]:
+                idx = self.category_combo.findText(parsed["category"])
+                if idx >= 0:
+                    self.category_combo.setCurrentIndex(idx)
 
-        if parsed["category"]:
-            idx = self.category_combo.findText(parsed["category"])
-            if idx >= 0:
-                self.category_combo.setCurrentIndex(idx)
+            if parsed["note"]:
+                self.note_input.setPlainText(parsed["note"])
 
-        if parsed["note"]:
-            self.note_input.setPlainText(parsed["note"])
+            QMessageBox.information(self, "Success", f"Detected:\n{text}")
 
-        QMessageBox.information(self, "Success", f"Detected:\n{text}")
+        except sr.WaitTimeoutError:
+            QMessageBox.warning(self, "Voice Input", "Kamu nggak ngomong 😭")
+        except OSError:
+            QMessageBox.critical(self, "Voice Input", "Microphone tidak ditemukan 🎤❌")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Unexpected error:\n{str(e)}")
+        finally:
+            self.voice_btn.setText("🎤 Voice Input")
 
-    except sr.WaitTimeoutError:
-        QMessageBox.warning(self, "Voice Input", "Kamu nggak ngomong 😭")
-    except OSError:
-        QMessageBox.critical(self, "Voice Input", "Microphone tidak ditemukan 🎤❌")
-    except Exception as e:
-        QMessageBox.critical(self, "Error", f"Unexpected error:\n{str(e)}")
-    finally:
-        self.voice_btn.setText("🎤 Voice Input")
     def handle_save(self):
         try:
             trans_type = self.trans_type.currentText()
@@ -563,9 +519,19 @@ class TransactionsPage(QWidget):
         outer.setContentsMargins(20, 20, 20, 20)
         outer.setSpacing(16)
 
+        title_row = QHBoxLayout()
+
         title = QLabel("Transactions")
         title.setObjectName("pageTitle")
-        outer.addWidget(title)
+
+        export_btn = QPushButton("Export CSV")
+        export_btn.clicked.connect(self.export_transactions_csv)
+
+        title_row.addWidget(title)
+        title_row.addStretch()
+        title_row.addWidget(export_btn)
+
+        outer.addLayout(title_row)
 
         filter_box = SectionBox("Filter & Search")
         filters = QGridLayout()
@@ -648,6 +614,68 @@ class TransactionsPage(QWidget):
         outer.addWidget(edit_box)
 
         self.refresh_data()
+
+    def export_transactions_csv(self):
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Transactions",
+            "transactions.csv",
+            "CSV Files (*.csv)"
+        )
+
+        if not file_path:
+            return
+
+        if not file_path.endswith(".csv"):
+            file_path += ".csv"
+
+        try:
+            rows = self.rows_cache
+
+            if not rows:
+                QMessageBox.warning(self, "Export CSV", "No transactions to export.")
+                return
+
+            with open(file_path, mode="w", newline="", encoding="utf-8-sig") as file:
+                writer = csv.writer(file)
+
+                writer.writerow([
+                    "ID",
+                    "Store",
+                    "Amount",
+                    "Category",
+                    "Date",
+                    "Type",
+                    "Note",
+                    "Receipt Image"
+                ])
+
+                for row in rows:
+                    keys = row.keys()
+
+                    writer.writerow([
+                        row["id"],
+                        row["store_name"],
+                        row["amount"],
+                        row["category"],
+                        row["date"],
+                        row["type"],
+                        row["note"] if "note" in keys and row["note"] else "",
+                        row["receipt_image"] if "receipt_image" in keys and row["receipt_image"] else "",
+                    ])
+
+            QMessageBox.information(
+                self,
+                "Export CSV",
+                "Transactions exported successfully."
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Export Error",
+                f"Failed to export CSV:\n{str(e)}"
+            )
 
     def refresh_data(self):
         rows = get_transactions(
