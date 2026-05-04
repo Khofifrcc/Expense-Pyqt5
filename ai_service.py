@@ -3,16 +3,24 @@ import json
 import mimetypes
 from datetime import date
 
-from google import genai
-from google.genai import types
+# PERBAIKAN IMPORT DI SINI:
+# Kita pakai 'from google import genai' tapi pastikan environment bersih
+# Jika masih error, gunakan 'import google.genai as genai'
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    import google.genai as genai
+    from google.genai import types
 
 from database import get_transactions, get_summary, add_transaction
 
-
+# Tetap pakai model pilihan lu
 MODEL_NAME = "gemini-3-flash-preview"
 
-
 def get_gemini_client():
+    # Pastikan lu sudah set environment variable di terminal:
+    # $env:GEMINI_API_KEY='KODE_API_LU'
     api_key = os.environ.get("GEMINI_API_KEY")
 
     if not api_key:

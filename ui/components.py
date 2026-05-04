@@ -1,7 +1,9 @@
 from PyQt5.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
+from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
+# --- KOMPONEN LAMA (TETAP UTUH) ---
 
 class SummaryCard(QFrame):
     def __init__(self, title: str, value: str, subtitle: str = ""):
@@ -61,17 +63,33 @@ class ChartCanvas(FigureCanvas):
         self.draw()
 
     def plot_pie(self, labels, values, title="Expense by Category"):
-        if not values:
+        if not values or sum(values) <= 0:
             self._empty_state("No expense data yet")
             return
 
-        self.figure.clear()
-        self.ax = self.figure.add_subplot(111)
-        self.ax.pie(values, labels=labels, autopct="%1.1f%%", startangle=90)
-        self.ax.set_title(title)
-        self.figure.tight_layout()
-        self.draw()
-
+        try:
+            self.figure.clear()
+            self.ax = self.figure.add_subplot(111)
+            wedges, texts, autotexts = self.ax.pie(
+                values, 
+                autopct="%1.1f%%", 
+                startangle=90, 
+                pctdistance=0.85
+            )
+            self.ax.legend(
+                wedges, 
+                labels,
+                title="Categories",
+                loc="center left",
+                bbox_to_anchor=(1, 0, 0.5, 1)
+            )
+            self.ax.set_title(title)
+            self.figure.tight_layout()
+            self.draw()
+        except Exception as e:
+            print(f"Chart Error: {e}")
+            self._empty_state("Error rendering chart")
+            
     def plot_bar(self, labels, values, title="Income vs Expense"):
         if not values or sum(values) == 0:
             self._empty_state("No income / expense data yet")
@@ -79,7 +97,13 @@ class ChartCanvas(FigureCanvas):
 
         self.figure.clear()
         self.ax = self.figure.add_subplot(111)
-        self.ax.bar(labels, values)
+        colors = []
+        for label in labels:
+            if label.lower() == 'income': colors.append('#2ecc71')
+            elif label.lower() == 'expense': colors.append('#e74c3c')
+            else: colors.append('#3498db')
+
+        self.ax.bar(labels, values, color=colors)
         self.ax.set_title(title)
         self.ax.set_ylabel("Amount")
         self.figure.tight_layout()
@@ -99,6 +123,7 @@ class ChartCanvas(FigureCanvas):
         self.figure.tight_layout()
         self.draw()
 
+# --- STYLESHEET LENGKAP (DITAMBAHKAN TANPA PANGKAS) ---
 
 def app_stylesheet():
     return """
@@ -150,6 +175,7 @@ def app_stylesheet():
         padding: 11px 16px;
         border-radius: 12px;
         font-weight: 600;
+        min-width: 110px;
     }
 
     QPushButton:hover {
@@ -219,11 +245,16 @@ def app_stylesheet():
     }
 
     #placeholder {
-        background: #081a3a;
-        border-radius: 22px;
-        color: #d7e4f7;
-        font-size: 16px;
-        border: none;
+        border: 2px dashed #2948a2;
+        border-radius: 12px;
+        background-color: #f0f4f8; 
+        color: #2948a2;
+    }
+
+    #previewActive {
+        border: 2px solid #2948a2;
+        border-radius: 12px;
+        background-color: #1a1a1a; 
     }
 
     #tipBox {
@@ -250,29 +281,38 @@ def app_stylesheet():
         border: 1px solid #d8e1e8;
     }
 
+    /* --- TAMBAHAN BARU UNTUK LIVE RECEIPT --- */
+    #receipt_card {
+        background-color: #ebf8ff;
+        border: 1px solid #bee3f8;
+        border-radius: 15px;
+        padding: 20px;
+    }
+
+    #receipt_content {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 15px;
+        color: #4a5568;
+        font-size: 13px;
+    }
+
     QScrollArea {
         border: none;
         background: transparent;
     }
+
     QFormLayout QLabel {
-    font-weight: 600;
-    color: #334a5c;
-}
+        font-weight: 600;
+        color: #334a5c;
+    }
 
-QTextEdit {
-    padding: 10px;
-}
+    QTextEdit {
+        padding: 10px;
+    }
 
-QComboBox {
-    min-height: 22px;
-}
-
-QLineEdit {
-    min-height: 22px;
-}
-QPushButton {
-    min-width: 110px;
-}
-
-    
+    QComboBox, QLineEdit {
+        min-height: 22px;
+    }
     """

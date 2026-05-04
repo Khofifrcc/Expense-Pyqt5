@@ -22,6 +22,8 @@ from ui.pages import (
 )
 
 
+# ... (bagian import tetap sama)
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -72,25 +74,11 @@ class MainWindow(QMainWindow):
         # =========================
         content_wrap = QFrame()
         content_layout = QVBoxLayout(content_wrap)
-        content_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # PENYESUAIAN DI SINI:
+        # Kita kasih margin: Kiri: 30, Atas: 25, Kanan: 30, Bawah: 0
+        content_layout.setContentsMargins(30, 25, 30, 0)
         content_layout.setSpacing(0)
-
-        # =========================
-        # TOPBAR
-        # =========================
-        topbar = QFrame()
-        topbar.setObjectName("topbar")
-
-        topbar_layout = QHBoxLayout(topbar)
-        topbar_layout.setContentsMargins(20, 12, 20, 12)
-        topbar_layout.setSpacing(12)
-        topbar_layout.addStretch()
-
-        notifications_btn = QPushButton("Notifications")
-        profile_btn = QPushButton("Profile")
-
-        topbar_layout.addWidget(notifications_btn)
-        topbar_layout.addWidget(profile_btn)
 
         # =========================
         # PAGES
@@ -108,18 +96,39 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.make_scroll_page(self.transactions_page))
         self.pages.addWidget(self.make_scroll_page(self.advisor_page))
 
-        self.nav.currentRowChanged.connect(self.pages.setCurrentIndex)
+        # --- PERUBAHAN DI SINI ---
+        # Ganti koneksi langsung ke fungsi handler baru kita
+        self.nav.currentRowChanged.connect(self.handle_nav_change)
 
         # =========================
         # FINAL LAYOUT
         # =========================
-        content_layout.addWidget(topbar)
         content_layout.addWidget(self.pages)
 
         root.addWidget(sidebar)
         root.addWidget(content_wrap)
 
         self.setStyleSheet(app_stylesheet())
+
+    # --- TAMBAHKAN FUNGSI INI DI DALAM CLASS MAINWINDOW ---
+    def handle_nav_change(self, index):
+        """Fungsi untuk menangani perpindahan halaman sekaligus refresh data"""
+        if index == 0:  # Dashboard
+            self.dashboard_page.refresh_data()
+        elif index == 3:  # Transactions
+            # Jika TransactionsPage punya fungsi load_data, panggil di sini
+            if hasattr(self.transactions_page, 'load_data'):
+                self.transactions_page.load_data()
+        
+        # Pindah ke index halaman yang dipilih
+        self.pages.setCurrentIndex(index)
+
+    def refresh_all(self):
+        """Fungsi callback yang dipanggil saat ada data baru masuk"""
+        self.dashboard_page.refresh_data()
+        # Jika halaman transaksi perlu update otomatis juga:
+        if hasattr(self.transactions_page, 'load_data'):
+            self.transactions_page.load_data()
 
     def make_scroll_page(self, widget):
         scroll = QScrollArea()
